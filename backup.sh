@@ -1,6 +1,6 @@
 #!/bin/bash
 # --------------------------------------------------------
-# Centos-Server-Backup-Script.
+# Linux Archive Backup.
 #
 #
 # by RaveMaker & ET

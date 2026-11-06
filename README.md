@@ -1,100 +1,91 @@
-Centos-Backup-Script
-====================
+# Linux Archive Backup
 
-The purpose of this script is to create daily backup archives (`tar.gz`) of selected directories/files and/or MYSQL dumps.
+Create rotating `.tar.gz` archives of selected directories and optional MySQL dumps on Linux.
 
-> NOTE: This script is intended for expert users, 
-please read carefully the script and the instructions and use it at your own risk.
+> For experienced users. Read the script and these instructions carefully, and use at your own risk. Root access may be required.
 
-This script support:
+## Features
 
-* Backup selected directories & files.
-* Backup selected MySQL Databases dump.
-* Compress and archive all into one `.tar.gz` file.
-* Create .tgz in a backup folder for each backup session.
-* Delete older backups and keep only the latest backups (6 by default).
-* Save each backup archive in a different directory (/backup/0 .. backup/6).
+- Backup selected directories and files
+- Dump MySQL databases
+- Compress each session into `.tgz` archives
+- Keep a fixed number of rotated copies (6 by default)
+- Store each run in a numbered folder (`backup/0` … `backup/N`)
+- Optional remote destination via SMB/CIFS
 
-> root access may be required to run this script.
+## Installation
 
-Documentation
--------------
+1. Clone or copy the project to your preferred directory:
 
-### Installation
+   ```bash
+   mkdir -p /scripts
+   cd /scripts
+   git clone <your-repo-url> linux-archive-backup
+   cd linux-archive-backup
+   ```
 
-1. Clone this script from github:
+2. Create settings from the example and edit them:
 
-	    mkdir /scripts
-	    cd /scripts
-	    git clone https://github.com/ET-CS/Centos-Backup-Script.git
+   ```bash
+   cp settings.cfg.example settings.cfg
+   ```
 
-	or copy the files manually to your prefered directory.
+   Set MySQL credentials if you use DB backups, and set `workdir` to this script’s location (for example `/scripts/linux-archive-backup`).
 
-2. Create setting.cfg from the included settings.cfg.example.
+## Configure backups
 
-	    cp settings.cfg.example settings.cfg
+Create `lst/folders.lst` with the paths to archive (space-separated on one line):
 
-	and update your mysql user/password inside.
-	update also the `workdir` folder to the location of this script
+```text
+/var/log/ /var/www/ /usr/files/ /tftpd/
+```
 
-### Configure backups
-Create file inside the `/lst` folder called `folders.lst`.
-The script reads for directories/files to backup. Input list of all folders to backup in one row:
+Optional MySQL list file: `lst/db.lst` (one database name per line). When `BACKUP_MYSQL=true`, the script can also refresh that list from the server.
 
-		/var/log/ /var/www/ /usr/files/ /tftpd/
-### (Optional) Configure remote backup via SMB/CIFS
-*This is turned off by default.
+## Remote backup (SMB/CIFS)
 
-In order to enable:
-in the settings.cfg.example you'll see a setting "BACKUP_REMOTELY=false" change to true.
+Disabled by default (`BACKUP_REMOTELY=false`).
 
-To configure the remote host:
-In the settings.cfg.example find "#Remote settings (cifs/smb)." You'll see an example of a remote host, this is where you'll need to change the host(remote) IP of the machine, the "share" name on the PC, along with your user and pass for the remote machine.
+To enable:
 
-The backup will fail if these settings aren't correct and you'll need to correct what it says in the terminal before you'll be able to successfully backup.
+1. Set `BACKUP_REMOTELY=true` in `settings.cfg`
+2. Configure `REMOTE_HOST`, `REMOTE_SHARE`, `REMOTE_USER`, and `REMOTE_PASS`
+3. The share is mounted at `$backupdir` for the run
+4. Leave `unmountremote=true` to unmount when finished (default)
 
-Where is the share mounted to:
-"$backupdir"
+The run fails if the mount settings are wrong — fix whatever the terminal reports before retrying.
 
-How to keep the remote share mounted after backup:
-At the very bottom you'll see a setting "unmountremote=true". This is for if you'd like to keep the remote share mounted after backup is complete. Having to set to the default (true) will automatically unmount the remote share.
+## How backups are stored
 
-How do you setup a SMB/CIFS share?
-You may need to enable it in the programs and features > additional features. Then you'll need to create a folder somewhere and right click > give access to > specific people. Make sure the user you're sharing access to has permissions on the folder and while in the permissions tab delete the "Everyone" permission in order to only allow the user you want to be able to access your backups. 
+By default, archives land under `$workdir/backup`, one subdirectory per generation:
 
-When in doubt google it. There's a ton of info out there on this. 
+- `BACKUP_COPIES` controls how many older copies to keep (default `6`)
+- Newest backup is always `backup/0`
+- On each run, folders shift: `0` → `1`, `1` → `2`, … and the oldest slot is removed
+- Override the destination with the `backupdir` setting if needed
 
-### How backup files are saved
-all backups are saved by default inside your `workdir`/backup folder. each backup inside a seperate subdirectory.
+## Enable the script
 
-* by default, the script saves 6 older backups. this can be changed using the `BACKUP_COPIES` settings (inside settings.cfg).
-* first backup will be saved at /$workdir/backup/0
-* at second backup, 0 folder will renamed 1 and the new backup will be saved at /$workdir/backup/0 again.
-* when all 7 folders (6 older and the current - /backup/0) are full - folder /backup/6 will be deleted; 5 will be renamed to 6; 4 to 5.. etc.. 0 again will be the newest backup.
+The script starts in test mode (`WRITE_CHANGES=false`) and does not write backups until you turn that off.
 
-> backup/0 is the newer backup. backup/6 is the oldest backup  
+1. Configure settings and run once in test mode
+2. Confirm the console output looks right
+3. Set `WRITE_CHANGES=true` in `settings.cfg`
 
-you can set the backup destination to another folder by manually editing the `backupdir` setting. 
+You can also set `DISABLED=true` to skip runs without removing cron.
 
-### Enable script
-By default, the script is set in test-mode (NO BACKUP). 
+## Cron
 
-1. Configure the settings, Test the script in your environment in testmode and verify using the console output that everything is ok. disable testmode by changing the setting inside your settings.cfg:
- 
-		WRITE_CHANGES=true
+Example daily run at midnight:
 
-### Setup cron
-Setup cron to run your script daily (or at any timing you want).
+```bash
+crontab -e
+```
 
-for example:
+```cron
+0 0 * * * /scripts/linux-archive-backup/backup.sh
+```
 
-	    crontab -e
+Settings can also be loaded from `/etc/backup.cfg` if that file exists; otherwise `settings.cfg` next to the script is used.
 
-add inside:
-
-	    0 0 * * * /scripts/Centos-Backup-Script/backup.sh
-
-Authors: [RaveMaker][RaveMaker] & [ET][ET].
-
-[RaveMaker]: http://ravemaker.net
-[ET]: http://etcs.me
+Authors: [RaveMaker](http://ravemaker.net) & [ET](http://etcs.me).
