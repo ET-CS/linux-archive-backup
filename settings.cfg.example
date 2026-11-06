@@ -18,7 +18,7 @@ BACKUP_REMOTELY=false    #Default is disabled, enable to backup to a remote wind
 # wrapper folder for all script files/folders.
 # affecting this will recursivly change the folders for all following settings.
 # ex. by default, backup destination is in folder /backup inside workdir.
-workdir=/scripts/Centos-Backup-Script
+workdir=/scripts/linux-archive-backup
 
 # backup source settings
 listfile=$workdir/lst/db.lst				# list of mysql database schemas to backup (1 per line)
